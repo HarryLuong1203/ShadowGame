@@ -1,18 +1,40 @@
 # core/hand_tracking.py
 import cv2
-import mediapipe as mp
-import mediapipe.python.solutions
 import numpy as np
+
+# Import mediapipe theo cách mới
+try:
+    import mediapipe as mp
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision
+    USE_NEW_API = True
+except:
+    import mediapipe as mp
+    USE_NEW_API = False
 
 class HandTracker:
     def __init__(self, max_hands=2):
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            max_num_hands=max_hands,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.7
-        )
-        self.results = None
+        if USE_NEW_API:
+            # API mới (mediapipe >= 0.10.8)
+            try:
+                self.mp_hands = mp.solutions.hands
+                self.hands = self.mp_hands.Hands(
+                    max_num_hands=max_hands,
+                    min_detection_confidence=0.7,
+                    min_tracking_confidence=0.7
+                )
+                self.results = None
+            except:
+                raise Exception("Không thể khởi tạo MediaPipe Hands")
+        else:
+            # API cũ
+            self.mp_hands = mp.solutions.hands
+            self.hands = self.mp_hands.Hands(
+                max_num_hands=max_hands,
+                min_detection_confidence=0.7,
+                min_tracking_confidence=0.7
+            )
+            self.results = None
 
     def process(self, frame):
         """Xử lý khung hình để tìm bàn tay"""
@@ -26,7 +48,7 @@ class HandTracker:
         Dùng cho việc tạo vật lý (Physics).
         """
         all_hands_points = []
-        if self.results.multi_hand_landmarks:
+        if self.results and self.results.multi_hand_landmarks:
             for hand_lms in self.results.multi_hand_landmarks:
                 points = {}
                 for id, lm in enumerate(hand_lms.landmark):
@@ -41,7 +63,7 @@ class HandTracker:
         Dùng để VẼ BÓNG (Visual).
         """
         polygons = []
-        if self.results.multi_hand_landmarks:
+        if self.results and self.results.multi_hand_landmarks:
             for hand_lms in self.results.multi_hand_landmarks:
                 # 1. Lấy tất cả tọa độ điểm của 1 bàn tay
                 point_list = []
@@ -54,7 +76,6 @@ class HandTracker:
                 hull = cv2.convexHull(point_array)
                 
                 # 3. Chuẩn hóa format để Pygame vẽ được
-                # hull trả về mảng [[x, y], [x, y]...], ta cần list các điểm
                 polygon_points = [pt[0].tolist() for pt in hull]
                 polygons.append(polygon_points)
                 
