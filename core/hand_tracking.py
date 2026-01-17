@@ -1,6 +1,7 @@
 # core/hand_tracking.py
 import cv2
 import mediapipe as mp
+import mediapipe.python.solutions
 import numpy as np
 
 class HandTracker:

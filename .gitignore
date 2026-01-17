@@ -1,6 +1,40 @@
-venv/
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
 dist/
 build/
 *.spec
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PyInstaller
+*.manifest
+*.spec
+
+# OS
 .DS_Store
+Thumbs.db
+*.log
+
+# Game specific
+highscores.txt
+tempCodeRunnerFile.py
+
+# Build outputs
+dist/
+build/
+*.exe

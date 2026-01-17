@@ -2,7 +2,12 @@
 import pygame
 import cv2
 import os
-from settings import * 
+from settings import (
+    WIDTH, HEIGHT, FPS, GAME_DURATION, WIN_SCORE,
+    BASKET_X, BASKET_Y, BASKET_WIDTH, BASKET_HEIGHT,
+    POWERUP_SPAWN_CHANCE, NEGATIVE_BALL_CHANCE, NEGATIVE_BALL_PENALTY,
+    NEGATIVE_BALL_COLOR, NEGATIVE_BALL_SYMBOL
+)
 from core import (
     HandModel, HandStyle, HandTracker, PhysicsManager, GameRenderer,
     ComboSystem, PowerUpSystem, ParticleSystem, TutorialSystem
@@ -13,7 +18,7 @@ STATE_MENU = 0
 STATE_TUTORIAL = 1
 STATE_PLAYING = 2
 STATE_GAMEOVER = 3
-STATE_CUSTOMIZE = 4
+STATE_WIN = 4  # Thêm trạng thái THẮNG
 
 HIGHSCORE_FILE = "highscores.txt"
 
@@ -49,10 +54,7 @@ class ShadowGame:
         self.state = STATE_MENU
         self.score = 0
         self.time_left = GAME_DURATION
-        self.high_scores = self.load_high_scores()
         
-        self.current_theme = 'default'
-        self.current_skin = 'default'
         self.time_scale = 1.0
         
         # --- ĐỊNH NGHĨA NÚT BẤM ---
@@ -61,53 +63,14 @@ class ShadowGame:
         
         # Menu
         self.btn_start_rect = pygame.Rect(cx - 120, cy + 40, 240, 70)
-        self.btn_customize_rect = pygame.Rect(cx - 120, cy + 130, 240, 70)
         
-        # Game Over / Customize Back
+        # Game Over
         self.btn_reset_rect = pygame.Rect(cx - 120, HEIGHT - 120, 240, 70)
         
-        # Tutorial buttons (Các nút trong màn hình hướng dẫn)
-        self.btn_tutorial_prev = pygame.Rect(50, HEIGHT - 100, 150, 60)  # NÚT MỚI: Quay lại
+        # Tutorial buttons
+        self.btn_tutorial_prev = pygame.Rect(50, HEIGHT - 100, 150, 60)
         self.btn_tutorial_next = pygame.Rect(WIDTH - 200, HEIGHT - 100, 150, 60)
         self.btn_tutorial_skip = pygame.Rect(WIDTH - 160, 30, 130, 50)
-
-        # Tạo nút customize
-        self.theme_buttons = []
-        self.skin_buttons = []
-        self._create_customize_buttons()
-
-    def _create_customize_buttons(self):
-        # Themes
-        themes = list(THEMES.keys())
-        btn_w, btn_h = 180, 50
-        start_x = WIDTH // 2 - (len(themes) * (btn_w + 20)) // 2
-        for i, name in enumerate(themes):
-            rect = pygame.Rect(start_x + i*(btn_w+20), HEIGHT//3, btn_w, btn_h)
-            self.theme_buttons.append((name, rect))
-            
-        # Skins
-        skins = list(BALL_SKINS.keys())
-        start_x = WIDTH // 2 - (len(skins) * (btn_w + 20)) // 2
-        for i, name in enumerate(skins):
-            rect = pygame.Rect(start_x + i*(btn_w+20), HEIGHT//2 + 30, btn_w, btn_h)
-            self.skin_buttons.append((name, rect))
-
-    def load_high_scores(self):
-        scores = []
-        if os.path.exists(HIGHSCORE_FILE):
-            with open(HIGHSCORE_FILE, "r", encoding='utf-8') as f:
-                for line in f:
-                    try: scores.append(int(line.strip()))
-                    except: pass
-        scores.sort(reverse=True)
-        return scores
-
-    def save_score(self):
-        self.high_scores.append(self.score)
-        self.high_scores.sort(reverse=True)
-        self.high_scores = self.high_scores[:10]
-        with open(HIGHSCORE_FILE, "w", encoding='utf-8') as f:
-            for s in self.high_scores: f.write(f"{s}\n")
 
     def start_game(self):
         """Khởi động game"""
@@ -120,7 +83,7 @@ class ShadowGame:
         self.tutorial_system.reset_game_stats()
         self.time_scale = 1.0
         
-        # --- LOGIC TUTORIAL: Nếu là lần đầu thì hiện hướng dẫn ---
+        # Logic tutorial
         if self.tutorial_system.first_time:
             self.state = STATE_TUTORIAL
             self.tutorial_system.start_tutorial()
@@ -135,50 +98,30 @@ class ShadowGame:
             
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if self.state == STATE_CUSTOMIZE: self.state = STATE_MENU
-                    else: self.running = False
+                    self.running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # 1. MENU
+                # MENU
                 if self.state == STATE_MENU:
                     if self.btn_start_rect.collidepoint(mouse_pos):
                         self.start_game()
-                    elif self.btn_customize_rect.collidepoint(mouse_pos):
-                        self.state = STATE_CUSTOMIZE
                 
-                # 2. TUTORIAL
+                # TUTORIAL
                 elif self.state == STATE_TUTORIAL:
-                    # NÚT QUAY LẠI (Mới thêm)
                     if self.btn_tutorial_prev.collidepoint(mouse_pos):
                         self.tutorial_system.prev_step()
                     
-                    # NÚT TIẾP THEO
                     elif self.btn_tutorial_next.collidepoint(mouse_pos):
                         self.tutorial_system.next_step()
-                        # Nếu hết tutorial thì tự vào game
                         if not self.tutorial_system.show_tutorial:
                             self.state = STATE_PLAYING
                     
-                    # NÚT BỎ QUA
                     elif self.btn_tutorial_skip.collidepoint(mouse_pos):
                         self.tutorial_system.skip_tutorial()
                         self.state = STATE_PLAYING
                 
-                # 3. CUSTOMIZE
-                elif self.state == STATE_CUSTOMIZE:
-                    for name, rect in self.theme_buttons:
-                        if rect.collidepoint(mouse_pos):
-                            self.current_theme = name
-                            self.renderer.set_theme(name)
-                    for name, rect in self.skin_buttons:
-                        if rect.collidepoint(mouse_pos):
-                            self.current_skin = name
-                            self.renderer.set_ball_skin(name)
-                    if self.btn_reset_rect.collidepoint(mouse_pos):
-                        self.state = STATE_MENU
-                
-                # 4. GAME OVER
-                elif self.state == STATE_GAMEOVER:
+                # GAME OVER / WIN
+                elif self.state == STATE_GAMEOVER or self.state == STATE_WIN:
                     if self.btn_reset_rect.collidepoint(mouse_pos):
                         self.start_game()
 
@@ -201,43 +144,90 @@ class ShadowGame:
             self.physics.set_magnet(self.powerup_system.has_powerup('magnet'))
             
             self.physics.update_hand_physics(hands_data)
-            if self.physics.current_ball is None: self.physics.spawn_ball()
+            
+            # Spawn bóng nếu không có bóng nào
+            if len(self.physics.get_all_balls()) == 0:
+                self.physics.spawn_ball()
+            
             self.physics.step(dt)
             
-            status, powerup_type = self.physics.check_ball_status()
+            # Kiểm tra trạng thái TẤT CẢ bóng
+            results = self.physics.check_balls_status()
             
-            if status == 1: # Ghi điểm
-                mult = self.combo_system.add_score()
-                pts = 1 * (2 if self.powerup_system.has_powerup('double_points') else 1) * mult
-                self.score += pts
+            for status, ball_type, powerup_type in results:
+                if status == 1:  # Vào rổ
+                    if ball_type == 'negative':
+                        # BÓNG TRỪ ĐIỂM - Không cho điểm âm
+                        self.score = max(0, self.score + NEGATIVE_BALL_PENALTY)
+                        self.combo_system.break_combo()
+                        # Hiệu ứng âm thanh/particle tiêu cực
+                        self.particle_system.create_explosion(
+                            BASKET_X + BASKET_WIDTH//2, 
+                            BASKET_Y, 
+                            NEGATIVE_BALL_COLOR
+                        )
+                        self.tutorial_system.show_hint("BỊ TRỪ ĐIỂM! Đánh văng bóng đen!", 2.0)
+                    else:
+                        # Bóng thường hoặc powerup - GHI ĐIỂM
+                        # ===== SỬA LẠI LOGIC TÍNH ĐIỂM =====
+                        combo_mult = self.combo_system.add_score()  # Lấy combo multiplier
+                        base_points = 1 * combo_mult  # Tính điểm cơ bản với combo
+                        
+                        # Áp dụng x2 SAU KHI đã tính combo
+                        if self.powerup_system.has_powerup('double_points'):
+                            pts = base_points * 2  # Nhân đôi điểm
+                        else:
+                            pts = base_points
+                        
+                        self.score += pts
+                        
+                        if powerup_type: 
+                            self.powerup_system.activate(powerup_type)
+                            self.particle_system.create_powerup_collect(
+                                BASKET_X + BASKET_WIDTH//2, 
+                                BASKET_Y, 
+                                powerup_type
+                            )
+                        
+                        # Effect ghi điểm
+                        self.particle_system.create_explosion(
+                            BASKET_X + BASKET_WIDTH//2, 
+                            BASKET_Y, 
+                            (255, 200, 50)
+                        )
+                        self.tutorial_system.on_score()
                 
-                if powerup_type: 
-                    self.powerup_system.activate(powerup_type)
-                    # Effect nhặt powerup
-                    bx, by = self.physics.current_ball.position if self.physics.current_ball else (0,0)
-                    self.particle_system.create_powerup_collect(BASKET_X+BASKET_WIDTH//2, BASKET_Y, powerup_type)
-                
-                # Effect ghi điểm
-                self.particle_system.create_explosion(BASKET_X+BASKET_WIDTH//2, BASKET_Y, (255, 200, 50))
-                self.tutorial_system.on_score()
-                
-            elif status == -1: # Trượt
-                self.combo_system.break_combo()
-                self.tutorial_system.on_miss()
+                elif status == -1:  # Ra ngoài
+                    if ball_type == 'negative':
+                        # Đánh văng bóng đen thành công - KHÔNG MẤT ĐIỂM
+                        pass
+                    else:
+                        # Mất bóng thường/powerup
+                        self.combo_system.break_combo()
+                        self.tutorial_system.on_miss()
             
             self.combo_system.check_timeout()
             self.combo_system.update(dt)
             
             # Update particles
-            b_pos = (self.physics.current_ball.position.x, self.physics.current_ball.position.y) if self.physics.current_ball else None
-            self.particle_system.update(dt, b_pos if self.combo_system.combo_count >= 5 else None)
+            all_balls = self.physics.get_all_balls()
+            b_pos = None
+            if all_balls and self.combo_system.combo_count >= 5:
+                # Lấy bóng đầu tiên làm vị trí vệt sao
+                b_pos = (all_balls[0].body.position.x, all_balls[0].body.position.y)
             
+            self.particle_system.update(dt, b_pos)
+            
+            # Kiểm tra điều kiện THẮNG
+            if self.score >= WIN_SCORE:
+                self.state = STATE_WIN
+            
+            # Kiểm tra hết thời gian (THUA)
             self.time_left -= dt
             if self.time_left <= 0:
                 self.state = STATE_GAMEOVER
-                self.save_score()
         
-        # Ở các màn hình khác (Menu, Tutorial), vẫn update tay để làm nền
+        # Ở các màn hình khác, vẫn update tay để làm nền
         else:
             self.physics.update_hand_physics(hands_data)
                 
@@ -247,8 +237,8 @@ class ShadowGame:
         self.renderer.clear_screen()
         m_pos = pygame.mouse.get_pos()
         
-        # Vẽ rổ ở mọi nơi trừ màn hình Customize (cho đỡ rối)
-        if self.state not in [STATE_CUSTOMIZE]:
+        # Vẽ rổ ở mọi nơi trừ menu
+        if self.state not in [STATE_MENU]:
             self.renderer.draw_basket()
         
         # Vẽ tay (Luôn hiện để người chơi test tay)
@@ -258,72 +248,49 @@ class ShadowGame:
 
         # --- VẼ GIAO DIỆN THEO TRẠNG THÁI ---
         if self.state == STATE_MENU:
-            bs = self.high_scores[0] if self.high_scores else 0
-            self.renderer.draw_menu(bs)
+            self.renderer.draw_menu_simple()
             
             hov = self.btn_start_rect.collidepoint(m_pos)
             self.renderer.draw_button("BẮT ĐẦU", self.btn_start_rect, (0, 180, 0), hov)
-            
-            hov = self.btn_customize_rect.collidepoint(m_pos)
-            self.renderer.draw_button("CỬA HÀNG", self.btn_customize_rect, (100, 100, 220), hov)
 
-        # --- MÀN HÌNH TUTORIAL ---
         elif self.state == STATE_TUTORIAL:
             step = self.tutorial_system.get_current_step()
             if step:
-                # Vẽ bảng hướng dẫn
                 self.renderer.draw_tutorial(step, self.tutorial_system.current_step, len(self.tutorial_system.tutorial_steps))
             
-            # Vẽ nút QUAY LẠI (chỉ hiện nếu không phải bước đầu tiên)
             if self.tutorial_system.current_step > 0:
                 hov = self.btn_tutorial_prev.collidepoint(m_pos)
                 self.renderer.draw_button("QUAY LẠI", self.btn_tutorial_prev, (100, 100, 100), hov)
             
-            # Vẽ nút TIẾP THEO / BẮT ĐẦU
             hov = self.btn_tutorial_next.collidepoint(m_pos)
             btn_text = "BẮT ĐẦU" if self.tutorial_system.current_step == len(self.tutorial_system.tutorial_steps) - 1 else "TIẾP THEO"
             self.renderer.draw_button(btn_text, self.btn_tutorial_next, (0, 150, 0), hov)
             
-            # Vẽ nút BỎ QUA
             hov = self.btn_tutorial_skip.collidepoint(m_pos)
             self.renderer.draw_button("BỎ QUA", self.btn_tutorial_skip, (150, 50, 50), hov)
 
-        elif self.state == STATE_CUSTOMIZE:
-            t = self.renderer.font_large.render("TÙY CHỈNH GIAO DIỆN", True, self.renderer.current_theme['text'])
-            self.screen.blit(t, (WIDTH//2 - t.get_width()//2, 80))
-            
-            lbl = self.renderer.font_medium.render("Chọn Chủ Đề:", True, self.renderer.current_theme['text'])
-            self.screen.blit(lbl, (WIDTH//2 - lbl.get_width()//2, HEIGHT//3 - 60))
-            for name, rect in self.theme_buttons:
-                sel = name == self.current_theme
-                hov = rect.collidepoint(m_pos)
-                col = (0, 200, 0) if sel else (120, 120, 120)
-                self.renderer.draw_button(THEMES[name]['name'], rect, col, hov)
-                
-            lbl = self.renderer.font_medium.render("Chọn Bóng:", True, self.renderer.current_theme['text'])
-            self.screen.blit(lbl, (WIDTH//2 - lbl.get_width()//2, HEIGHT//2 - 10))
-            for name, rect in self.skin_buttons:
-                sel = name == self.current_skin
-                hov = rect.collidepoint(m_pos)
-                col = (0, 200, 0) if sel else (120, 120, 120)
-                self.renderer.draw_button(BALL_SKINS[name]['name'], rect, col, hov)
-                
-            hov = self.btn_reset_rect.collidepoint(m_pos)
-            self.renderer.draw_button("QUAY LẠI", self.btn_reset_rect, (220, 100, 50), hov)
-
         elif self.state == STATE_PLAYING:
-            self.renderer.draw_ball(self.physics.ball_shape, self.physics.ball_type, self.physics.powerup_type)
+            # Vẽ TẤT CẢ bóng
+            for ball in self.physics.get_all_balls():
+                self.renderer.draw_ball(ball)
+            
             self.particle_system.draw(self.screen)
             self.renderer.draw_hud(self.score, self.time_left, self.combo_system, self.powerup_system)
             
-            # Vẽ Hint (Mẹo) nếu có
             if self.tutorial_system.should_show_hint():
                 self.renderer.draw_hint(self.tutorial_system.current_hint)
 
-        elif self.state == STATE_GAMEOVER:
-            self.renderer.draw_game_over(self.score, self.high_scores, self.combo_system)
+        elif self.state == STATE_WIN:
+            # Màn hình CHIẾN THẮNG
+            self.renderer.draw_win_screen(self.score)
             hov = self.btn_reset_rect.collidepoint(m_pos)
-            self.renderer.draw_button("CHƠI LẠI", self.btn_reset_rect, (0, 150, 250), hov)
+            self.renderer.draw_button("CHƠI LẠI", self.btn_reset_rect, (0, 200, 0), hov)
+
+        elif self.state == STATE_GAMEOVER:
+            # Màn hình THUA (hết giờ)
+            self.renderer.draw_game_over_simple(self.score)
+            hov = self.btn_reset_rect.collidepoint(m_pos)
+            self.renderer.draw_button("CHƠI LẠI", self.btn_reset_rect, (200, 100, 0), hov)
         
         pygame.display.update()
 

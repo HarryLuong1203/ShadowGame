@@ -2,20 +2,34 @@
 import pymunk
 import random
 import numpy as np
-from settings import *
+import time
+from settings import (
+    WIDTH, HEIGHT, GRAVITY, BALL_RADIUS, BALL_ELASTICITY, BALL_FRICTION,
+    BASKET_X, BASKET_Y, BASKET_WIDTH, BASKET_HEIGHT, COLOR_BASKET,
+    FINGER_THICKNESS, FPS, POWERUP_TYPES, POWERUP_SPAWN_CHANCE,
+    NEGATIVE_BALL_CHANCE, MULTI_BALL_CHANCE, MAX_BALLS_AT_ONCE, 
+    BALL_SPAWN_DELAY, POWERUP_DURATION
+)
 from core.hand_data import HandModel
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
+
+class Ball:
+    """Class đại diện cho một quả bóng"""
+    def __init__(self, body, shape, ball_type='normal', powerup_type=None):
+        self.body = body
+        self.shape = shape
+        self.ball_type = ball_type  # 'normal', 'powerup', 'negative'
+        self.powerup_type = powerup_type
 
 class PhysicsManager:
     def __init__(self):
         self.space = pymunk.Space()
         self.space.gravity = (0, GRAVITY)
         
-        # --- QUẢN LÝ BÓNG ---
-        self.current_ball = None 
-        self.ball_shape = None
-        self.ball_type = 'normal'  # 'normal' hoặc 'powerup'
-        self.powerup_type = None   # Loại power-up nếu là bóng đặc biệt
+        # --- QUẢN LÝ NHIỀU BÓNG ---
+        self.balls = []  # Danh sách các Ball objects
+        self.spawn_queue = []  # Hàng đợi spawn bóng
+        self.last_spawn_time = 0
         
         # --- RỔ HỨNG BÓNG ---
         self.create_basket()
@@ -52,88 +66,136 @@ class PhysicsManager:
             
         self.basket_body = body
 
-    def spawn_ball(self, force_powerup=False):
-        """Tạo bóng mới (có thể là bóng thường hoặc power-up)"""
-        if self.current_ball is not None:
-            return
+    def spawn_ball(self, force_powerup=False, force_negative=False):
+        """Tạo bóng mới - có thể spawn nhiều bóng"""
+        current_time = time.time()
+        
+        # Xác định số lượng bóng sẽ spawn
+        num_balls = 1
+        if random.random() < MULTI_BALL_CHANCE:
+            num_balls = random.randint(2, MAX_BALLS_AT_ONCE)
+        
+        # Thêm vào hàng đợi spawn
+        for i in range(num_balls):
+            spawn_time = current_time + (i * BALL_SPAWN_DELAY)
+            
+            # Xác định loại bóng
+            if force_negative:
+                ball_type = 'negative'
+                powerup_type = None
+            elif force_powerup or random.random() < POWERUP_SPAWN_CHANCE:
+                ball_type = 'powerup'
+                powerup_type = random.choice(list(POWERUP_TYPES.keys()))
+            elif random.random() < NEGATIVE_BALL_CHANCE:
+                ball_type = 'negative'
+                powerup_type = None
+            else:
+                ball_type = 'normal'
+                powerup_type = None
+            
+            # Xác định vị trí spawn
+            if ball_type == 'negative':
+                # Bóng trừ điểm rơi thẳng vào rổ
+                rand_x = BASKET_X + BASKET_WIDTH // 2
+            else:
+                # Bóng thường spawn ngẫu nhiên
+                rand_x = random.randint(100, WIDTH - 100)
+            
+            self.spawn_queue.append({
+                'time': spawn_time,
+                'x': rand_x,
+                'type': ball_type,
+                'powerup': powerup_type
+            })
 
-        rand_x = random.randint(100, WIDTH - 100)
+    def _create_ball_now(self, x, ball_type, powerup_type):
+        """Tạo bóng ngay lập tức"""
         body = pymunk.Body(1, 100, body_type=pymunk.Body.DYNAMIC)
-        body.position = (rand_x, -50)
+        body.position = (x, -50)
         shape = pymunk.Circle(body, BALL_RADIUS)
         shape.elasticity = BALL_ELASTICITY
         shape.friction = BALL_FRICTION
         
-        # Xác định loại bóng
-        if force_powerup or random.random() < POWERUP_SPAWN_CHANCE:
-            self.ball_type = 'powerup'
-            self.powerup_type = random.choice(list(POWERUP_TYPES.keys()))
-        else:
-            self.ball_type = 'normal'
-            self.powerup_type = None
-        
         self.space.add(body, shape)
-        self.current_ball = body
-        self.ball_shape = shape
+        ball = Ball(body, shape, ball_type, powerup_type)
+        self.balls.append(ball)
 
-    def remove_ball(self):
-        """Xóa bóng hiện tại"""
-        if self.current_ball:
-            self.space.remove(self.current_ball, self.ball_shape)
-            self.current_ball = None
-            self.ball_shape = None
-            self.ball_type = 'normal'
-            self.powerup_type = None
+    def process_spawn_queue(self):
+        """Xử lý hàng đợi spawn bóng"""
+        current_time = time.time()
+        remaining_queue = []
+        
+        for item in self.spawn_queue:
+            if current_time >= item['time']:
+                self._create_ball_now(item['x'], item['type'], item['powerup'])
+            else:
+                remaining_queue.append(item)
+        
+        self.spawn_queue = remaining_queue
 
-    def check_ball_status(self) -> Tuple[int, Optional[str]]:
+    def remove_ball(self, ball):
+        """Xóa một bóng cụ thể"""
+        if ball in self.balls:
+            self.space.remove(ball.body, ball.shape)
+            self.balls.remove(ball)
+
+    def check_balls_status(self) -> List[Tuple[int, str, Optional[str]]]:
         """
-        Kiểm tra trạng thái bóng:
-        - Return (1, powerup_type): Vào rổ
-        - Return (-1, None): Ra ngoài
-        - Return (0, None): Đang rơi
+        Kiểm tra trạng thái tất cả các bóng
+        Returns: List[(status, ball_type, powerup_type)]
+        - status: 1 (vào rổ), -1 (ra ngoài), 0 (đang rơi)
         """
-        if not self.current_ball:
-            return (0, None)
+        results = []
+        balls_to_remove = []
+        
+        for ball in self.balls:
+            x, y = ball.body.position
+            r = BALL_RADIUS
 
-        x, y = self.current_ball.position
-        r = BALL_RADIUS
+            # Kiểm tra vào rổ
+            if (BASKET_X < x < BASKET_X + BASKET_WIDTH) and \
+               (BASKET_Y + r < y < BASKET_Y + BASKET_HEIGHT):
+                results.append((1, ball.ball_type, ball.powerup_type))
+                balls_to_remove.append(ball)
+                continue
 
-        # Kiểm tra vào rổ
-        if (BASKET_X < x < BASKET_X + BASKET_WIDTH) and \
-           (BASKET_Y + r < y < BASKET_Y + BASKET_HEIGHT):
-            powerup = self.powerup_type if self.ball_type == 'powerup' else None
-            self.remove_ball()
-            return (1, powerup)
-
-        # Kiểm tra ra ngoài biên
-        if x < -r or x > WIDTH + r or y > HEIGHT + r:
-            self.remove_ball()
-            return (-1, None)
-
-        return (0, None)
+            # Kiểm tra ra ngoài biên
+            if x < -r or x > WIDTH + r or y > HEIGHT + r:
+                results.append((-1, ball.ball_type, ball.powerup_type))
+                balls_to_remove.append(ball)
+                continue
+        
+        # Xóa các bóng đã xử lý
+        for ball in balls_to_remove:
+            self.remove_ball(ball)
+        
+        return results
 
     def apply_magnet_force(self):
-        """Áp dụng lực hút nam châm"""
-        if not self.magnet_active or not self.current_ball:
+        """Áp dụng lực hút nam châm cho TẤT CẢ các bóng"""
+        if not self.magnet_active:
             return
         
-        # Tính vector từ bóng đến giữa rổ
         basket_center_x = BASKET_X + BASKET_WIDTH // 2
         basket_center_y = BASKET_Y + BASKET_HEIGHT // 2
         
-        ball_pos = self.current_ball.position
-        dx = basket_center_x - ball_pos.x
-        dy = basket_center_y - ball_pos.y
-        
-        distance = max(1, (dx**2 + dy**2)**0.5)
-        
-        # Lực hút giảm theo khoảng cách
-        max_force = 2000
-        force_magnitude = min(self.magnet_strength / (distance * 0.1), max_force)        
-        force_x = (dx / distance) * force_magnitude
-        force_y = (dy / distance) * force_magnitude
-        
-        self.current_ball.apply_force_at_local_point((force_x, force_y))
+        for ball in self.balls:
+            # Chỉ hút bóng thường và powerup, không hút bóng trừ điểm
+            if ball.ball_type == 'negative':
+                continue
+                
+            ball_pos = ball.body.position
+            dx = basket_center_x - ball_pos.x
+            dy = basket_center_y - ball_pos.y
+            
+            distance = max(1, (dx**2 + dy**2)**0.5)
+            
+            max_force = 2000
+            force_magnitude = min(self.magnet_strength / (distance * 0.1), max_force)        
+            force_x = (dx / distance) * force_magnitude
+            force_y = (dy / distance) * force_magnitude
+            
+            ball.body.apply_force_at_local_point((force_x, force_y))
 
     def update_hand_physics(self, hands_landmarks):
         for shape in self.hand_shapes:
@@ -185,6 +247,9 @@ class PhysicsManager:
                     self.hand_shapes.append(segment)
 
     def step(self, dt):
+        # Xử lý hàng đợi spawn
+        self.process_spawn_queue()
+        
         # Áp dụng magnet nếu active
         if self.magnet_active:
             self.apply_magnet_force()
@@ -195,9 +260,16 @@ class PhysicsManager:
         """Bật/tắt nam châm"""
         self.magnet_active = active
     
+    def get_all_balls(self):
+        """Lấy danh sách tất cả các bóng"""
+        return self.balls
+    
     def reset(self):
         """Reset game"""
-        self.remove_ball()
+        for ball in self.balls[:]:
+            self.remove_ball(ball)
+        self.balls.clear()
+        self.spawn_queue.clear()
         self.hand_body.velocity = (0, 0)
         self.prev_center = None
         self.magnet_active = False

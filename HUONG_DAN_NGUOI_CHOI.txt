@@ -1,0 +1,67 @@
+╔═══════════════════════════════════════════════════════════╗
+║          BÀN TAY MA THUẬT - HƯỚNG DẪN CÀI ĐẶT            ║
+╚═══════════════════════════════════════════════════════════╝
+
+📦 NỘI DUNG GÓI:
+   ├── BanTayMaThuat.exe    (File game chính - Chạy file này!)
+   ├── font.ttf             (Font chữ)
+   ├── slide.jpg            (Ảnh nền)
+   └── HUONG_DAN.txt        (File này)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎮 CÁCH CHẠY GAME:
+
+   1. Đảm bảo máy tính có WEBCAM
+   
+   2. CHẠY FILE: BanTayMaThuat.exe
+   
+   3. Cho phép truy cập Camera khi được hỏi
+   
+   4. Chơi game!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ YÊU CẦU HỆ THỐNG:
+
+   • Hệ điều hành: Windows 10/11 (64-bit)
+   • RAM: Tối thiểu 4GB
+   • Webcam: Bắt buộc
+   • Dung lượng: ~300MB
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 CÁCH CHƠI:
+
+   1. Đưa tay trước camera
+   2. Bóng đỏ: Hứng và đưa vào rổ để ghi điểm
+   3. Bóng đen 💀: Đánh văng ra ngoài (trừ điểm nếu rơi vào rổ!)
+   4. Mục tiêu: Đạt 10 điểm để thắng!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ XỬ LÝ LỖI:
+
+   ▸ "Không tìm thấy camera"
+      → Kiểm tra webcam đã cắm và driver đã cài
+
+   ▸ "Windows Defender cảnh báo"
+      → Chọn "More info" → "Run anyway"
+      (File .exe chưa được Microsoft ký nên có thể bị cảnh báo)
+
+   ▸ Game chậm/giật
+      → Đóng các ứng dụng khác
+      → Chạy ở độ phân giải thấp hơn
+
+   ▸ File .exe không chạy được
+      → Cài Microsoft Visual C++ Redistributable:
+         https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📧 LIÊN HỆ HỖ TRỢ:
+   Email: [your_email@gmail.com]
+   
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+          🎊 CHÚC BẠN CHƠI GAME VUI VẺ! 🎊

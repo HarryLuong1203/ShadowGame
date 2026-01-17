@@ -2,7 +2,12 @@
 import pygame
 import random
 import math
-from settings import *
+from settings import (
+    GRAVITY, PARTICLE_COUNT, PARTICLE_LIFETIME, 
+    PARTICLE_SPEED_MIN, PARTICLE_SPEED_MAX,
+    PARTICLE_SIZE_MIN, PARTICLE_SIZE_MAX,
+    STAR_TRAIL_LENGTH, POWERUP_TYPES
+)
 
 class Particle:
     """Một hạt hiệu ứng đơn lẻ"""
@@ -79,14 +84,14 @@ class ParticleSystem:
     def init_surface(self, width, height):
         self.particle_surface = pygame.Surface((width, height), pygame.SRCALPHA)
         
-    def create_explosion(self, x, y, color, count=PARTICLE_COUNT):
+    def create_explosion(self, x, y, color, count=30):
         """Tạo hiệu ứng nổ khi ghi điểm"""
         for _ in range(count):
             angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(100, 300)
+            speed = random.uniform(PARTICLE_SPEED_MIN, PARTICLE_SPEED_MAX)
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
-            size = random.uniform(3, 8)
+            size = random.uniform(PARTICLE_SIZE_MIN, PARTICLE_SIZE_MAX)
             lifetime = random.uniform(0.5, PARTICLE_LIFETIME)
             
             particle = Particle(x, y, vx, vy, color, size, lifetime)
