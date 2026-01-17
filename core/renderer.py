@@ -41,7 +41,7 @@ class GameRenderer:
             self.background = pygame.transform.scale(bg_img, (self.width, self.height))
             print(f"✅ Đã load ảnh nền: {BACKGROUND_IMAGE}")
         except Exception as e:
-            print(f"⚠️  Không thể load ảnh nền '{BACKGROUND_IMAGE}': {e}")
+            print(f"⚠️ Không thể load ảnh nền '{BACKGROUND_IMAGE}': {e}")
             print("   → Sử dụng màu nền mặc định.")
         
         # --- QUẢN LÝ FONT (ĐÃ SỬA) ---
@@ -54,7 +54,7 @@ class GameRenderer:
             self.font_tiny = pygame.font.Font(font_path, 20)
             print("✅ Đã load font tùy chỉnh thành công!")
         except Exception as e:
-            print(f"⚠️  Không tìm thấy 'font.ttf': {e}")
+            print(f"⚠️ Không tìm thấy 'font.ttf': {e}")
             print("   → Đang dùng font mặc định.")
             self.font_large = pygame.font.SysFont("Verdana", 60, bold=True)
             self.font_medium = pygame.font.SysFont("Verdana", 40, bold=True)
@@ -66,7 +66,7 @@ class GameRenderer:
         self.current_skin = BALL_SKINS['default']
 
     def clear_screen(self):
-        """Vẽ nền - Ưu tiên ảnh, fallback về màu"""
+        """Vẽ nền - ưu tiên ảnh, fallback về màu"""
         if self.background:
             self.screen.blit(self.background, (0, 0))
         else:
@@ -276,13 +276,8 @@ class GameRenderer:
             self.screen.blit(sym, (px - sym.get_width()//2, py - sym.get_height()//2))
 
     def draw_menu_simple(self):
-        """Menu đơn giản - không có highscore"""
-        title = "BÀN TAY MA THUẬT"
-        surf = self.font_large.render(title, True, self.current_theme['text'])
-        shad = self.font_large.render(title, True, (0,0,0,50))
-        self.screen.blit(shad, (self.width//2 - surf.get_width()//2 + 4, self.height//3 + 4))
-        self.screen.blit(surf, (self.width//2 - surf.get_width()//2, self.height//3))
-        
+        """Menu đơn giản - chỉ có ảnh nền và nút bấm"""
+        pass  # Không vẽ gì cả, chỉ để nền hiển thị
 
     def draw_win_screen(self, final_score):
         """Màn hình CHIẾN THẮNG"""
